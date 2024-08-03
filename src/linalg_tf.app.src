@@ -1,0 +1,13 @@
+{application, linalg_tf,
+ [
+  {description, "Tensorflow "},
+  {vsn, "0.1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { linalg_tf, []}},
+  {env, []}
+ ]}.
+
