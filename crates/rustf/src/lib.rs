@@ -5,7 +5,6 @@ extern crate tensorflow;
 
 //use rustler::{NifEnv, NifTerm, NifError, NifDecoder, NifEncoder, NifResult};
 use tensorflow::Tensor;
-use tensorflow::Shape;
 use tensorflow::Scope;
 use tensorflow::DataType::{Float,Int32};
 
@@ -13,7 +12,7 @@ use rustler::{NifResult, Atom, ResourceArc};
 use std::sync::RwLock;
 
 rustler::init!("linalg_tf", 
-    [version,to_tensor,from_tensor,transpose,echo],
+    [version,to_tensor,from_tensor,transpose],
     load = load
     );
 
@@ -31,7 +30,7 @@ pub struct TensorResource {
 
 #[rustler::nif]
 fn to_tensor(m: Vec<Vec<f32>>) -> ResourceArc<TensorResource> {
-   println!("to_tensor {:?}",m);
+    //println!("to_tensor {:?}",m);
     let t = v2t(m);
     ResourceArc::new(TensorResource{payload: RwLock::new(t)})
 }
@@ -39,7 +38,7 @@ fn to_tensor(m: Vec<Vec<f32>>) -> ResourceArc<TensorResource> {
 #[rustler::nif]
 fn from_tensor(res: ResourceArc<TensorResource>) -> Vec<Vec<f32>> {
     let t = res.payload.read().unwrap();
-    println!("from_tensor {:?}",t);
+    //println!("from_tensor {:?}",t);
     t2v(t.clone())
 }
 
@@ -98,23 +97,6 @@ fn transpose(res: ResourceArc<TensorResource>) -> ResourceArc<TensorResource> {
     }
 }
 
-#[rustler::nif]
-fn echo(res: ResourceArc<TensorResource>) -> ResourceArc<TensorResource> {
-
-    // Create a sample tensor
-    let tensor: Tensor<f32> = Tensor::new(&[2, 3, 4]);
-
-    // Get the shape of the tensor
-    let shape = tensor.shape();
-
-    // Print the shape
-    println!("Tensor shape: {:?}", shape);
-
-    let t0 = res.payload.read().unwrap();
-    let t1 = v2t(t2v(t0.clone()));
-    ResourceArc::new(TensorResource{payload: RwLock::new(t1)})
-}
-
 mod atoms {
     rustler::atoms! {
         null,
@@ -134,21 +116,19 @@ fn version() -> Vec<u8> {
 // Private convert erlang to tenor
 //vec![vec![d.get(&[0, 0]),d.get(&[0, 1])],vec![d.get(&[1, 0]),d.get(&[1, 1])]]
 fn t2v(d: Tensor<f32>) -> Vec<Vec<f32>> {
-   println!("t2v {:?}",d);
-   println!("shape {:?}",d.shape());
-   //vec![vec![d.get(&[0, 0]),d.get(&[0, 1])],vec![d.get(&[1, 0]),d.get(&[1, 1])]]
-   let shape = d.shape();
-   match (shape[0],shape[1]) {
-       (Some(n),Some(m)) => {
-        println!("{}x{}",n,m); 
-        (0u64..=(n as u64-1)).collect::<Vec<u64>>().iter().map(|i| (0u64..=(m as u64-1)).collect::<Vec<u64>>().iter().map(|j|d.get(&[*i, *j])).collect()).collect()
-    },
-    _ => vec![vec![]]
-   }
+    println!("t2v {:?}",d);
+    println!("shape {:?}",d.shape());
+    //vec![vec![d.get(&[0, 0]),d.get(&[0, 1])],vec![d.get(&[1, 0]),d.get(&[1, 1])]]
+    let shape = d.shape();
+    match (shape[0],shape[1]) {
+        (Some(n),Some(m)) => 
+            (0u64..=(n as u64-1)).collect::<Vec<u64>>().iter().map(|i| (0u64..=(m as u64-1)).collect::<Vec<u64>>().iter().map(|j|d.get(&[*i, *j])).collect()).collect()
+            ,
+        _ => vec![vec![]]
+    }
 }
 
 fn v2t(m: Vec<Vec<f32>>) -> Tensor<f32> {
-   println!("v2t {:?}",m);
     let nrows=m.len() as u64;
     let ncols=m[0].len() as u64;
 
