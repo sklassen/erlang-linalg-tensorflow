@@ -5,6 +5,7 @@ extern crate tensorflow;
 
 //use rustler::{NifEnv, NifTerm, NifError, NifDecoder, NifEncoder, NifResult};
 use tensorflow::Tensor;
+use tensorflow::Shape;
 use tensorflow::Scope;
 use tensorflow::DataType::{Float,Int32};
 
@@ -30,6 +31,7 @@ pub struct TensorResource {
 
 #[rustler::nif]
 fn to_tensor(m: Vec<Vec<f32>>) -> ResourceArc<TensorResource> {
+   println!("to_tensor {:?}",m);
     let t = v2t(m);
     ResourceArc::new(TensorResource{payload: RwLock::new(t)})
 }
@@ -37,14 +39,16 @@ fn to_tensor(m: Vec<Vec<f32>>) -> ResourceArc<TensorResource> {
 #[rustler::nif]
 fn from_tensor(res: ResourceArc<TensorResource>) -> Vec<Vec<f32>> {
     let t = res.payload.read().unwrap();
+    println!("from_tensor {:?}",t);
     t2v(t.clone())
 }
 
 #[rustler::nif]
 fn transpose(res: ResourceArc<TensorResource>) -> ResourceArc<TensorResource> {
 
-    //let t1 = res.payload.read().unwrap();
-    let t1 = Tensor::new(&[2, 2]).with_values(&[1.0f32,2.0f32,3.0f32,4.0f32]).unwrap();
+    let t1 = res.payload.read().unwrap();
+    println!("in: {:?}", t1.shape());
+    //let t1 = Tensor::new(&[2, 2]).with_values(&[1.0f32,2.0f32,3.0f32,4.0f32]).unwrap();
 
     let f = |t:Tensor<f32>| -> Result<Tensor<f32>, tensorflow::Status> {
         let mut scope = Scope::new_root_scope();
@@ -85,15 +89,29 @@ fn transpose(res: ResourceArc<TensorResource>) -> ResourceArc<TensorResource> {
         Ok(ans)
     };
 
-    ResourceArc::new(TensorResource{payload: RwLock::new(f(t1).unwrap())})
+    match f(t1.clone()) {
+        Ok(val) => { 
+            println!("out: {:?}", val.shape());
+            ResourceArc::new(TensorResource{payload: RwLock::new(val)})
+        },
+        Err(_) => panic!("opps")
+    }
 }
 
 #[rustler::nif]
 fn echo(res: ResourceArc<TensorResource>) -> ResourceArc<TensorResource> {
 
-    //let t0 = res.payload.read().unwrap();
-    //let t1 = v2t(t2v(t0));
-    let t1 = Tensor::new(&[2, 2]).with_values(&[1.0f32,2.0f32,3.0f32,4.0f32]).unwrap();
+    // Create a sample tensor
+    let tensor: Tensor<f32> = Tensor::new(&[2, 3, 4]);
+
+    // Get the shape of the tensor
+    let shape = tensor.shape();
+
+    // Print the shape
+    println!("Tensor shape: {:?}", shape);
+
+    let t0 = res.payload.read().unwrap();
+    let t1 = v2t(t2v(t0.clone()));
     ResourceArc::new(TensorResource{payload: RwLock::new(t1)})
 }
 
@@ -114,11 +132,23 @@ fn version() -> Vec<u8> {
 }
 
 // Private convert erlang to tenor
+//vec![vec![d.get(&[0, 0]),d.get(&[0, 1])],vec![d.get(&[1, 0]),d.get(&[1, 1])]]
 fn t2v(d: Tensor<f32>) -> Vec<Vec<f32>> {
-   vec![vec![d.get(&[0, 0]),d.get(&[0, 1])],vec![d.get(&[1, 0]),d.get(&[1, 1])]]
+   println!("t2v {:?}",d);
+   println!("shape {:?}",d.shape());
+   //vec![vec![d.get(&[0, 0]),d.get(&[0, 1])],vec![d.get(&[1, 0]),d.get(&[1, 1])]]
+   let shape = d.shape();
+   match (shape[0],shape[1]) {
+       (Some(n),Some(m)) => {
+        println!("{}x{}",n,m); 
+        (0u64..=(n as u64-1)).collect::<Vec<u64>>().iter().map(|i| (0u64..=(m as u64-1)).collect::<Vec<u64>>().iter().map(|j|d.get(&[*i, *j])).collect()).collect()
+    },
+    _ => vec![vec![]]
+   }
 }
 
 fn v2t(m: Vec<Vec<f32>>) -> Tensor<f32> {
+   println!("v2t {:?}",m);
     let nrows=m.len() as u64;
     let ncols=m[0].len() as u64;
 
