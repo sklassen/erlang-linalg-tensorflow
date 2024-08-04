@@ -1,6 +1,15 @@
 # erlang-linalg-tensorflow
 An Erlang NIF using Rust's Rustler and Tensorflow
 
+
+You will need tensor installed. These two library files, built in the release directory, need 
+to be on `LD_DEFAULT_PATH`
+
+```
+libtensorflow.so.2
+libtensorflow_framework.so.2
+```
+
 Assuming you have rustup, erlang and rebar3. 
 
 ```
@@ -10,7 +19,7 @@ rebar3 shell
 Should build and launch 
 
 ```
-Erlang/OTP 25 [erts-13.2.2.5] [source] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:1] [jit:ns]
+Erlang/OTP 25 [erts-13.2.2.5] [source] [64-bit] [smp:8:8]
 
 Eshell V13.2.2.5  (abort with ^G)
 1> linalg_tf:to_tensor([[1.0,2.0],[3.0,4.0]]).                

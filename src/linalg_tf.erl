@@ -1,5 +1,5 @@
 -module(linalg_tf).
--export([version/0,to_tensor/1,from_tensor/1,transpose/1]).
+-export([version/0,to_tensor/1,from_tensor/1,transpose/1,inv/1]).
 
 -on_load(init/0).
 
@@ -8,6 +8,9 @@ init() ->
 	erlang:load_nif(Directory++"/librustf", 0).
 
 version() -> 
+        exit(nif_library_not_loaded).
+
+inv(_) -> 
         exit(nif_library_not_loaded).
 
 transpose(_) -> 
