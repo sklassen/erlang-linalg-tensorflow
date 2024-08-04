@@ -13,7 +13,7 @@ use rustler::ResourceArc;
 use std::sync::RwLock;
 
 rustler::init!("linalg_tf", 
-    [version,to_tensor,from_tensor,transpose,inv],
+    [version,to_tensor,from_tensor,transpose,inv,matmul,svd],
     load = load
     );
 
@@ -100,8 +100,6 @@ fn transpose(res: ResourceArc<TensorResource>) -> ResourceArc<TensorResource> {
 fn inv(res: ResourceArc<TensorResource>) -> ResourceArc<TensorResource> {
 
     let t1 = res.payload.read().unwrap();
-    //println!("in: {:?}", t1.shape());
-    //let t1 = Tensor::new(&[2, 2]).with_values(&[1.0f32,2.0f32,3.0f32,4.0f32]).unwrap();
 
     let f = |t:Tensor<f32>| -> Result<Tensor<f32>, tensorflow::Status> {
         let scope = Scope::new_root_scope();
@@ -136,7 +134,105 @@ fn inv(res: ResourceArc<TensorResource>) -> ResourceArc<TensorResource> {
 
     match f(t1.clone()) {
         Ok(val) => { 
-            //println!("out: {:?}", val.shape());
+            ResourceArc::new(TensorResource{payload: RwLock::new(val)})
+        },
+        Err(_) => panic!("opps")
+    }
+}
+
+#[rustler::nif]
+fn matmul(res_a: ResourceArc<TensorResource>,res_b: ResourceArc<TensorResource>) -> ResourceArc<TensorResource> {
+
+    let a = res_a.payload.read().unwrap();
+    let b = res_b.payload.read().unwrap();
+
+    let f = |a:Tensor<f32>,b:Tensor<f32>| -> Result<Tensor<f32>, tensorflow::Status> {
+        let scope = Scope::new_root_scope();
+        let session = tensorflow::Session::new(&tensorflow::SessionOptions::new(), &scope.graph())?;
+
+        let in1 = tensorflow::ops::Placeholder::new()
+            .dtype(Float)
+            .build(&mut scope.with_op_name("input1"))?;
+
+        let in2 = tensorflow::ops::Placeholder::new()
+            .dtype(Float)
+            .build(&mut scope.with_op_name("input2"))?;
+
+        let _ = tensorflow::ops::MatMul::new().T(Float).build(
+            in1,
+            in2,
+            &mut scope.with_op_name("matmul"))?;
+
+        let mut step = tensorflow::SessionRunArgs::new();
+
+        step.add_feed(
+            &scope.graph().operation_by_name_required("input1")?,
+            0,
+            &a);
+
+        step.add_feed(
+            &scope.graph().operation_by_name_required("input2")?,
+            0,
+            &b);
+
+        // fetch final result
+        let result = step
+            .request_fetch(&scope.graph()
+            .operation_by_name_required("matmul")?, 0);
+
+        // Run the operation
+        session.run(&mut step)?;
+
+        let ans: Tensor<f32> = step.fetch(result)?;
+        Ok(ans)
+    };
+
+    match f(a.clone(),b.clone()) {
+        Ok(val) => { 
+            ResourceArc::new(TensorResource{payload: RwLock::new(val)})
+        },
+        Err(_) => panic!("opps")
+    }
+}
+
+#[rustler::nif]
+fn svd(res: ResourceArc<TensorResource>) -> ResourceArc<TensorResource> {
+
+    let t1 = res.payload.read().unwrap();
+
+    let f = |t:Tensor<f32>| -> Result<Tensor<f32>, tensorflow::Status> {
+        let scope = Scope::new_root_scope();
+        let session = tensorflow::Session::new(&tensorflow::SessionOptions::new(), &scope.graph())?;
+
+        let in1 = tensorflow::ops::Placeholder::new()
+            .dtype(Float)
+            .build(&mut scope.with_op_name("input1"))?;
+
+        let _ = tensorflow::ops::Svd::new().T(Float).build(
+            in1,
+            &mut scope.with_op_name("svd"))?;
+
+        let mut step = tensorflow::SessionRunArgs::new();
+
+        step.add_feed(
+            &scope.graph().operation_by_name_required("input1")?,
+            0,
+            &t);
+
+        // fetch final result
+        let result = step
+            .request_fetch(&scope.graph()
+            .operation_by_name_required("svd")?, 0);
+
+        // Run the operation
+        session.run(&mut step)?;
+
+        let ans: Tensor<f32> = step.fetch(result)?;
+        Ok(ans)
+    };
+
+    match f(t1.clone()) {
+        Ok(val) => { 
             ResourceArc::new(TensorResource{payload: RwLock::new(val)})
         },
         Err(_) => panic!("opps")

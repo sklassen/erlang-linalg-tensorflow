@@ -31,3 +31,8 @@ Eshell V13.2.2.5  (abort with ^G)
 9> linalg_tf:from_tensor(#Ref<0.1234474187.3896901636.45902>).
 [[1.0,3.0],[2.0,4.0]]
 ```
+
+You can suppress tensorflow warnings with 
+```
+export TF_CPP_MIN_LOG_LEVEL=3
+```
