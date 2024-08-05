@@ -3,12 +3,14 @@ An Erlang NIF using Rust's Rustler and Tensorflow
 
 
 You will need tensor installed. These two library files, built in the release directory, need 
-to be on `LD_DEFAULT_PATH`
+to be on `LD_LIBRARY_PATH`
 
+copy these files into ./priv and set  `LD_LIBRARY_PATH=./priv/`
 ```
 libtensorflow.so.2
 libtensorflow_framework.so.2
 ```
+
 
 Assuming you have rustup, erlang and rebar3. 
 

@@ -1,15 +1,13 @@
 extern crate rustler;
 extern crate tensorflow;
 
-//use rustler::{Encoder, Env,Term};
+//use rustler::{Env, Term, Encoder, NifResult};
+use rustler::ResourceArc;
 
-//use rustler::{NifEnv, NifTerm, NifError, NifDecoder, NifEncoder, NifResult};
 use tensorflow::Tensor;
 use tensorflow::Scope;
 use tensorflow::DataType::{Float,Int32};
 
-//use rustler::{NifResult, Atom, ResourceArc};
-use rustler::ResourceArc;
 use std::sync::RwLock;
 
 rustler::init!("linalg_tf", 
@@ -27,6 +25,40 @@ pub struct TensorResource {
 }
 // ResourceArc::new(TensorResource{payload: RwLock::new(1)})
 // res.payload.read()
+
+//#[rustler::nif]
+//pub fn inv<'a>(
+//    env: Env<'a>,
+//    term: Term,
+//) -> NifResult<Term<'a>> {
+//    let m: DMatrix<f64> = t2m(term)?;
+//
+//    match aql::linalg::inv(m)
+//    {
+//        Ok(m_inv) => Ok(m2t(env,m_inv)),
+//        Err(msg) => Ok(env.error_tuple(err(msg))),
+//    }
+//
+//}
+
+//fn t2m(term: Term) -> NifResult<DMatrix<f64>> {
+//    let matrix: Vec<Vec<f64>> = term.decode::<ListIterator>()?.map(f_vec).collect::<NifResult<Vec<Vec<f64>>>>()?;
+//    let nrows = matrix.len();
+//    let ncols = matrix[0].len();
+//    let rowwise = flatten(matrix);
+//
+//    Ok(DMatrix::from_row_slice(nrows, ncols, &rowwise))
+//}
+//
+//fn m2t(env: Env, matrix:DMatrix<f64>) -> Term {
+//    let ncols = matrix.ncols();
+//    let mut terms = Vec::new();
+//    for r in matrix.transpose().as_slice().chunks(ncols) {
+//        terms.push(Vec::from(r))
+//    }
+//    terms.encode(env)
+//}
+
 
 
 #[rustler::nif]
