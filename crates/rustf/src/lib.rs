@@ -1,8 +1,7 @@
 extern crate rustler;
 extern crate tensorflow;
 
-//use rustler::{Env, Term, Encoder, NifResult};
-use rustler::ResourceArc;
+use rustler::{Term,ListIterator,ResourceArc,Error,NifResult};
 
 use tensorflow::Tensor;
 use tensorflow::Scope;
@@ -11,7 +10,7 @@ use tensorflow::DataType::{Float,Int32};
 use std::sync::RwLock;
 
 rustler::init!("linalg_tf", 
-    [version,to_tensor,from_tensor,transpose,inv,matmul,svd],
+    [version,to_tensor,from_tensor,transpose,diag,inv,matmul,svd],
     load = load
     );
 
@@ -62,21 +61,22 @@ pub struct TensorResource {
 
 
 #[rustler::nif]
-fn to_tensor(m: Vec<Vec<f32>>) -> ResourceArc<TensorResource> {
-    //println!("to_tensor {:?}",m);
-    let t = v2t(m);
-    ResourceArc::new(TensorResource{payload: RwLock::new(t)})
+fn to_tensor(term: Term) -> NifResult<ResourceArc<TensorResource>> {
+    let v: Vec<Vec<f32>> = term.decode::<ListIterator>()?.map(from_vector).collect::<NifResult<Vec<Vec<f32>>>>()?;
+    let t = v2t(v);
+    Ok(ResourceArc::new(TensorResource{payload: RwLock::new(t)}))
 }
 
 #[rustler::nif]
-fn from_tensor(res: ResourceArc<TensorResource>) -> Vec<Vec<f32>> {
-    let t = res.payload.read().unwrap();
-    //println!("from_tensor {:?}",t);
-    t2v(t.clone())
+fn from_tensor(res: ResourceArc<TensorResource>) -> NifResult<Vec<Vec<f32>>> {
+    match res.payload.read() {
+        Ok(t) => Ok(t2v(t.clone())),
+        Err(_) => Err(Error::RaiseAtom("null")),
+    }
 }
 
 #[rustler::nif]
-fn transpose(res: ResourceArc<TensorResource>) -> ResourceArc<TensorResource> {
+fn transpose(res: ResourceArc<TensorResource>) -> NifResult<ResourceArc<TensorResource>> {
 
     let t1 = res.payload.read().unwrap();
     //println!("in: {:?}", t1.shape());
@@ -120,16 +120,57 @@ fn transpose(res: ResourceArc<TensorResource>) -> ResourceArc<TensorResource> {
     };
 
     match f(t1.clone()) {
-        Ok(val) => { 
-            //println!("out: {:?}", val.shape());
-            ResourceArc::new(TensorResource{payload: RwLock::new(val)})
-        },
-        Err(_) => panic!("opps")
+        Ok(val) => Ok(ResourceArc::new(TensorResource{payload: RwLock::new(val)})),
+        Err(_) => Err(Error::RaiseAtom("null")),
     }
 }
 
 #[rustler::nif]
-fn inv(res: ResourceArc<TensorResource>) -> ResourceArc<TensorResource> {
+fn diag(res: ResourceArc<TensorResource>) -> NifResult<ResourceArc<TensorResource>> {
+
+    let t1 = res.payload.read().unwrap();
+    //println!("in: {:?}", t1.shape());
+    //let t1 = Tensor::new(&[2, 2]).with_values(&[1.0f32,2.0f32,3.0f32,4.0f32]).unwrap();
+
+    let f = |t:Tensor<f32>| -> Result<Tensor<f32>, tensorflow::Status> {
+        let scope = Scope::new_root_scope();
+        let session = tensorflow::Session::new(&tensorflow::SessionOptions::new(), &scope.graph())?;
+
+        let in1 = tensorflow::ops::Placeholder::new()
+            .dtype(Float)
+            .build(&mut scope.with_op_name("input1"))?;
+
+        let _ = tensorflow::ops::Diag::new().T(Float).build(
+            in1,
+            &mut scope.with_op_name("diag"))?;
+
+        let mut step = tensorflow::SessionRunArgs::new();
+
+        step.add_feed(
+            &scope.graph().operation_by_name_required("input1")?,
+            0,
+            &t);
+
+        // fetch final result
+        let result = step
+            .request_fetch(&scope.graph()
+            .operation_by_name_required("diag")?, 0);
+
+        // Run the operation
+        session.run(&mut step)?;
+
+        let ans: Tensor<f32> = step.fetch(result)?;
+        Ok(ans)
+    };
+
+    match f(t1.clone()) {
+        Ok(val) => Ok(ResourceArc::new(TensorResource{payload: RwLock::new(val)})),
+        Err(_) => Err(Error::RaiseAtom("null")),
+    }
+}
+
+#[rustler::nif]
+fn inv(res: ResourceArc<TensorResource>) -> NifResult<ResourceArc<TensorResource>> {
 
     let t1 = res.payload.read().unwrap();
 
@@ -165,15 +206,13 @@ fn inv(res: ResourceArc<TensorResource>) -> ResourceArc<TensorResource> {
     };
 
     match f(t1.clone()) {
-        Ok(val) => { 
-            ResourceArc::new(TensorResource{payload: RwLock::new(val)})
-        },
-        Err(_) => panic!("opps")
+        Ok(val) => Ok(ResourceArc::new(TensorResource{payload: RwLock::new(val)})),
+        Err(_) => Err(Error::RaiseAtom("null")),
     }
 }
 
 #[rustler::nif]
-fn matmul(res_a: ResourceArc<TensorResource>,res_b: ResourceArc<TensorResource>) -> ResourceArc<TensorResource> {
+fn matmul(res_a: ResourceArc<TensorResource>,res_b: ResourceArc<TensorResource>) -> NifResult<ResourceArc<TensorResource>> {
 
     let a = res_a.payload.read().unwrap();
     let b = res_b.payload.read().unwrap();
@@ -220,15 +259,13 @@ fn matmul(res_a: ResourceArc<TensorResource>,res_b: ResourceArc<TensorResource>)
     };
 
     match f(a.clone(),b.clone()) {
-        Ok(val) => { 
-            ResourceArc::new(TensorResource{payload: RwLock::new(val)})
-        },
-        Err(_) => panic!("opps")
+        Ok(val) => Ok(ResourceArc::new(TensorResource{payload: RwLock::new(val)})),
+        Err(_) => Err(Error::RaiseAtom("null")),
     }
 }
 
 #[rustler::nif]
-fn svd(res: ResourceArc<TensorResource>) -> ResourceArc<TensorResource> {
+fn svd(res: ResourceArc<TensorResource>) -> NifResult<ResourceArc<TensorResource>> {
 
     let t1 = res.payload.read().unwrap();
 
@@ -264,10 +301,8 @@ fn svd(res: ResourceArc<TensorResource>) -> ResourceArc<TensorResource> {
     };
 
     match f(t1.clone()) {
-        Ok(val) => { 
-            ResourceArc::new(TensorResource{payload: RwLock::new(val)})
-        },
-        Err(_) => panic!("opps")
+        Ok(val) => Ok(ResourceArc::new(TensorResource{payload: RwLock::new(val)})),
+        Err(_) => Err(Error::RaiseAtom("null")),
     }
 }
 
@@ -296,7 +331,7 @@ fn t2v(d: Tensor<f32>) -> Vec<Vec<f32>> {
     let shape = d.shape();
     match (shape[0],shape[1]) {
         (Some(n),Some(m)) => 
-            (0u64..=(n as u64-1)).collect::<Vec<u64>>().iter().map(|i| (0u64..=(m as u64-1)).collect::<Vec<u64>>().iter().map(|j|d.get(&[*i, *j])).collect()).collect()
+            (0u64..=(n as u64-1)).collect::<Vec<u64>>().iter().map(|i| (0u64..=(m as u64-1)).collect::<Vec<u64>>().iter().map(|j|d.get(&[*i, *j])/1.).collect()).collect()
             ,
         _ => vec![vec![]]
     }
@@ -309,5 +344,23 @@ fn v2t(m: Vec<Vec<f32>>) -> Tensor<f32> {
     let values: Vec<f32> = m.into_iter().flatten().collect();
 
     Tensor::new(&[nrows, ncols]).with_values(&values).unwrap()
+}
+
+fn from_number(term: Term) -> NifResult<f32> {
+    match term.decode::<f32>() {
+        Ok(f) => Ok(f),
+        Err(_) => match term.decode::<i32>() {
+            Ok(i) => Ok(i as f32),
+            Err(_) => Err(Error::BadArg),
+        }
+    }
+}
+
+fn from_vector(term: Term) -> NifResult<Vec<f32>> {
+    let array :Vec<f32> = match term.list_length() {
+        Ok(_) => term.decode::<ListIterator>()?.map(from_number).collect::<NifResult<Vec<f32>>>()?,
+        Err(_) => vec![from_number(term)?],
+    };
+    Ok(array)
 }
 
