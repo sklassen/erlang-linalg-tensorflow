@@ -21,7 +21,7 @@ inv_1_test() ->
 
 inv_2_test()->
 	?assertEqual([[1.0,2.0],[2.0,0.5]],from_tensor(inv(to_tensor([[1.0,0.5],[0.5,2.0]])))).
-%
+
 %inv_3_test()->
 %	?assertEqual([[-1.0,-1.0,2.0],[-1.0,0.0,1.0],[2.0,1.0,-2.0]],from_tensor(inv(to_tensor([[1.0,0.0,1.0],[0.0,2.0,1.0],[1.0,1.0,1.0]])))).
 
@@ -32,7 +32,7 @@ matmul_2_test()->
   ?assertEqual([[5.0,11.0],[11.0,25.0]], from_tensor(matmul(to_tensor([[1.0,2.0],[3.0,4.0]]), to_tensor([[1.0,3.0],[2.0,4.0]])))).
 
 %svd_2x2_test() ->
-%  A=[[3,2],[2,3]],
+%  A=to_tensor([[3,2],[2,3]]),
 %  {U,S,Vt}=svd(A),
 %  [
 %   ?assertEqual([[0.707,0.707],[0.707,-0.707]],linalg:around(U,3)),

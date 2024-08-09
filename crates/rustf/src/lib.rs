@@ -1,7 +1,7 @@
 extern crate rustler;
 extern crate tensorflow;
 
-use rustler::{Term,ListIterator,ResourceArc,Error,NifResult};
+use rustler::{Env, Term,ListIterator,ResourceArc,Error,Encoder,NifResult};
 
 use tensorflow::Tensor;
 use tensorflow::Scope;
@@ -68,9 +68,9 @@ fn to_tensor(term: Term) -> NifResult<ResourceArc<TensorResource>> {
 }
 
 #[rustler::nif]
-fn from_tensor(res: ResourceArc<TensorResource>) -> NifResult<Vec<Vec<f32>>> {
+fn from_tensor(env: Env, res: ResourceArc<TensorResource>) -> NifResult<Term> {
     match res.payload.read() {
-        Ok(t) => Ok(t2v(t.clone())),
+        Ok(t) => Ok(matrix_to_term(env,t2v(t.clone()))),
         Err(_) => Err(Error::RaiseAtom("null")),
     }
 }
@@ -140,7 +140,7 @@ fn diag(res: ResourceArc<TensorResource>) -> NifResult<ResourceArc<TensorResourc
             .dtype(Float)
             .build(&mut scope.with_op_name("input1"))?;
 
-        let _ = tensorflow::ops::Diag::new().T(Float).build(
+        let _ = tensorflow::ops::MatrixDiag::new().T(Float).build(
             in1,
             &mut scope.with_op_name("diag"))?;
 
@@ -335,6 +335,15 @@ fn t2v(d: Tensor<f32>) -> Vec<Vec<f32>> {
             ,
         _ => vec![vec![]]
     }
+}
+
+fn matrix_to_term(env: Env, m: Vec<Vec<f32>>) -> Term {
+    let ncols=m.len();
+    let mut terms = Vec::new();
+    for r in m.as_slice().chunks(ncols) {
+        terms.push(Vec::from(r))
+    }
+    terms[0].encode(env)
 }
 
 fn v2t(m: Vec<Vec<f32>>) -> Tensor<f32> {
