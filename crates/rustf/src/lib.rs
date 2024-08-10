@@ -22,55 +22,22 @@ fn load(env: rustler::Env, _:rustler::Term) -> bool {
 pub struct TensorResource {
     payload: RwLock<Tensor<f32>>
 }
-// ResourceArc::new(TensorResource{payload: RwLock::new(1)})
-// res.payload.read()
-
-//#[rustler::nif]
-//pub fn inv<'a>(
-//    env: Env<'a>,
-//    term: Term,
-//) -> NifResult<Term<'a>> {
-//    let m: DMatrix<f64> = t2m(term)?;
-//
-//    match aql::linalg::inv(m)
-//    {
-//        Ok(m_inv) => Ok(m2t(env,m_inv)),
-//        Err(msg) => Ok(env.error_tuple(err(msg))),
-//    }
-//
-//}
-
-//fn t2m(term: Term) -> NifResult<DMatrix<f64>> {
-//    let matrix: Vec<Vec<f64>> = term.decode::<ListIterator>()?.map(f_vec).collect::<NifResult<Vec<Vec<f64>>>>()?;
-//    let nrows = matrix.len();
-//    let ncols = matrix[0].len();
-//    let rowwise = flatten(matrix);
-//
-//    Ok(DMatrix::from_row_slice(nrows, ncols, &rowwise))
-//}
-//
-//fn m2t(env: Env, matrix:DMatrix<f64>) -> Term {
-//    let ncols = matrix.ncols();
-//    let mut terms = Vec::new();
-//    for r in matrix.transpose().as_slice().chunks(ncols) {
-//        terms.push(Vec::from(r))
-//    }
-//    terms.encode(env)
-//}
-
-
 
 #[rustler::nif]
 fn to_tensor(term: Term) -> NifResult<ResourceArc<TensorResource>> {
     let v: Vec<Vec<f32>> = term.decode::<ListIterator>()?.map(from_vector).collect::<NifResult<Vec<Vec<f32>>>>()?;
-    let t = v2t(v);
+    let t = matrix_to_tensor(v);
     Ok(ResourceArc::new(TensorResource{payload: RwLock::new(t)}))
 }
 
 #[rustler::nif]
 fn from_tensor(env: Env, res: ResourceArc<TensorResource>) -> NifResult<Term> {
     match res.payload.read() {
-        Ok(t) => Ok(matrix_to_term(env,t2v(t.clone()))),
+        Ok(t) => match t.dims() {
+                  [_] => Ok(vector_to_term(env,tenor_to_vector(t.clone()))),
+                  [_,_] => Ok(matrix_to_term(env,tenor_to_matrix(t.clone()))),
+                  _ => todo!(),
+        },
         Err(_) => Err(Error::RaiseAtom("null")),
     }
 }
@@ -140,7 +107,7 @@ fn diag(res: ResourceArc<TensorResource>) -> NifResult<ResourceArc<TensorResourc
             .dtype(Float)
             .build(&mut scope.with_op_name("input1"))?;
 
-        let _ = tensorflow::ops::MatrixDiag::new().T(Float).build(
+        let _ = tensorflow::ops::DiagPart::new().T(Float).build(
             in1,
             &mut scope.with_op_name("diag"))?;
 
@@ -322,19 +289,37 @@ fn version() -> Vec<u8> {
     }
 }
 
-// Private convert erlang to tenor
-//vec![vec![d.get(&[0, 0]),d.get(&[0, 1])],vec![d.get(&[1, 0]),d.get(&[1, 1])]]
-fn t2v(d: Tensor<f32>) -> Vec<Vec<f32>> {
-    //println!("t2v {:?}",d);
-    //println!("shape {:?}",d.shape());
+// Private Functions
+fn tenor_to_vector(d: Tensor<f32>) -> Vec<f32> {
+    //println!("tenor_to_vector {:?}",d);
+    println!("shape {:?}",d.shape());
+    println!("tensor {:?}",d);
+    //vec![vec![d.get(&[0, 0]),d.get(&[0, 1])],vec![d.get(&[1, 0]),d.get(&[1, 1])]]
+    let shape = d.shape();
+    match shape[0] {
+        Some(n) => 
+            (0u64..=(n as u64-1)).collect::<Vec<u64>>().iter().map(|i|d.get(&[*i])).collect()
+            ,
+        _ => vec![]
+    }
+}
+
+fn tenor_to_matrix(d: Tensor<f32>) -> Vec<Vec<f32>> {
+    //println!("tenor_to_matrix {:?}",d);
+    println!("shape {:?}",d.shape());
+    println!("tensor {:?}",d);
     //vec![vec![d.get(&[0, 0]),d.get(&[0, 1])],vec![d.get(&[1, 0]),d.get(&[1, 1])]]
     let shape = d.shape();
     match (shape[0],shape[1]) {
         (Some(n),Some(m)) => 
-            (0u64..=(n as u64-1)).collect::<Vec<u64>>().iter().map(|i| (0u64..=(m as u64-1)).collect::<Vec<u64>>().iter().map(|j|d.get(&[*i, *j])/1.).collect()).collect()
-            ,
+            (0u64..=(n as u64-1)).collect::<Vec<u64>>().iter().map(|i| (0u64..=(m as u64-1)).collect::<Vec<u64>>().iter().map(|j|d.get(&[*i, *j])).collect()).collect(),
         _ => vec![vec![]]
     }
+}
+
+fn vector_to_term(env: Env, m: Vec<f32>) -> Term {
+    let terms = Vec::from(m.as_slice());
+    terms.encode(env)
 }
 
 fn matrix_to_term(env: Env, m: Vec<Vec<f32>>) -> Term {
@@ -346,7 +331,7 @@ fn matrix_to_term(env: Env, m: Vec<Vec<f32>>) -> Term {
     terms[0].encode(env)
 }
 
-fn v2t(m: Vec<Vec<f32>>) -> Tensor<f32> {
+fn matrix_to_tensor(m: Vec<Vec<f32>>) -> Tensor<f32> {
     let nrows=m.len() as u64;
     let ncols=m[0].len() as u64;
 
