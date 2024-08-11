@@ -1,7 +1,7 @@
 extern crate rustler;
 extern crate tensorflow;
 
-use rustler::{Env, Term,ListIterator,ResourceArc,Error,Encoder,NifResult};
+use rustler::{Env,Term,ListIterator,ResourceArc,Error,Encoder,NifResult};
 
 use tensorflow::Tensor;
 use tensorflow::Scope;
@@ -232,11 +232,11 @@ fn matmul(res_a: ResourceArc<TensorResource>,res_b: ResourceArc<TensorResource>)
 }
 
 #[rustler::nif]
-fn svd(res: ResourceArc<TensorResource>) -> NifResult<ResourceArc<TensorResource>> {
+fn svd(res: ResourceArc<TensorResource>) -> NifResult<(ResourceArc<TensorResource>, ResourceArc<TensorResource>, ResourceArc<TensorResource>)> {
 
     let t1 = res.payload.read().unwrap();
 
-    let f = |t:Tensor<f32>| -> Result<Tensor<f32>, tensorflow::Status> {
+    let f = |t:Tensor<f32>| -> Result<(Tensor<f32>,Tensor<f32>,Tensor<f32>), tensorflow::Status> {
         let scope = Scope::new_root_scope();
         let session = tensorflow::Session::new(&tensorflow::SessionOptions::new(), &scope.graph())?;
 
@@ -244,11 +244,12 @@ fn svd(res: ResourceArc<TensorResource>) -> NifResult<ResourceArc<TensorResource
             .dtype(Float)
             .build(&mut scope.with_op_name("input1"))?;
 
-        let _ = tensorflow::ops::Svd::new().T(Float).build(
-            in1,
+        let _ = tensorflow::ops::Svd::new().T(Float).build_instance(
+            in1.into(),
             &mut scope.with_op_name("svd"))?;
 
         let mut step = tensorflow::SessionRunArgs::new();
+        step.set_request_metadata(true);
 
         step.add_feed(
             &scope.graph().operation_by_name_required("input1")?,
@@ -256,19 +257,39 @@ fn svd(res: ResourceArc<TensorResource>) -> NifResult<ResourceArc<TensorResource
             &t);
 
         // fetch final result
-        let result = step
+        let s = step
             .request_fetch(&scope.graph()
             .operation_by_name_required("svd")?, 0);
+
+        let u = step
+            .request_fetch(&scope.graph()
+            .operation_by_name_required("svd")?, 1);
+
+        let v = step
+            .request_fetch(&scope.graph()
+            .operation_by_name_required("svd")?, 2);
+
 
         // Run the operation
         session.run(&mut step)?;
 
-        let ans: Tensor<f32> = step.fetch(result)?;
-        Ok(ans)
+        let s  = step.fetch(s)?;
+        let u  = step.fetch(u)?;
+        let v  = step.fetch(v)?;
+
+        println!("s = {:?}",s);
+        println!("u = {:?}",u);
+        println!("v = {:?}",v);
+
+        Ok((s,u,v))
     };
 
     match f(t1.clone()) {
-        Ok(val) => Ok(ResourceArc::new(TensorResource{payload: RwLock::new(val)})),
+        Ok((s,u,v)) => Ok((
+                ResourceArc::new(TensorResource{payload: RwLock::new(s)}),
+                ResourceArc::new(TensorResource{payload: RwLock::new(u)}),
+                ResourceArc::new(TensorResource{payload: RwLock::new(v)}),
+        )),
         Err(_) => Err(Error::RaiseAtom("null")),
     }
 }

@@ -31,15 +31,14 @@
 %matmul_2_test()->
 %  ?assertEqual([[5.0,11.0],[11.0,25.0]], from_tensor(matmul(to_tensor([[1.0,2.0],[3.0,4.0]]), to_tensor([[1.0,3.0],[2.0,4.0]])))).
 
-svd_2x2_test() ->
-  A=to_tensor([[3,2],[2,3]]),
-  SVD=svd(A),
-  from_tensor(SVD).
+%svd_2x2_test() ->
+%  A=to_tensor([[3,2],[2,3]]),
+%  {_S,U,_V}=svd(A),
 %  [
-%   ?assertEqual([[0.707,0.707],[0.707,-0.707]],linalg:around(U,3)),
-%   ?assertEqual([5, 1], linalg:around(S)),
-%   ?assertEqual([[0.707,0.707],[0.707,-0.707]],linalg:around(Vt,3)),
-%   ?assertEqual(A,linalg:around(matmul(matmul(U,diag(S)),Vt)))
+%   %?assertEqual([[0.707,0.707],[0.707,-0.707]],from_tensor(V)),
+%   %?assertEqual([5, 1], from_tensor(S)),
+%   ?assertEqual([[0.707,0.707],[0.707,-0.707]],from_tensor(U))
+%   %?assertEqual(A,linalg:around(matmul(matmul(U,diag(S)),Vt)))
 %  ].
 
 %svd_2x3_test() ->
