@@ -10,5 +10,6 @@ path = "src/lib.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
+log = "0.4"
 rustler = "0.22.2"
 tensorflow = "0.21.0"

@@ -9,6 +9,8 @@ use tensorflow::DataType::{Float,Int32};
 
 use std::sync::RwLock;
 
+use log::debug;
+
 rustler::init!("linalg_tf", 
     [version,to_tensor,from_tensor,transpose,diag,inv,matmul,svd],
     load = load
@@ -46,7 +48,7 @@ fn from_tensor(env: Env, res: ResourceArc<TensorResource>) -> NifResult<Term> {
 fn transpose(res: ResourceArc<TensorResource>) -> NifResult<ResourceArc<TensorResource>> {
 
     let t1 = res.payload.read().unwrap();
-    //println!("in: {:?}", t1.shape());
+    //debug!("in: {:?}", t1.shape());
     //let t1 = Tensor::new(&[2, 2]).with_values(&[1.0f32,2.0f32,3.0f32,4.0f32]).unwrap();
 
     let f = |t:Tensor<f32>| -> Result<Tensor<f32>, tensorflow::Status> {
@@ -96,7 +98,7 @@ fn transpose(res: ResourceArc<TensorResource>) -> NifResult<ResourceArc<TensorRe
 fn diag(res: ResourceArc<TensorResource>) -> NifResult<ResourceArc<TensorResource>> {
 
     let t1 = res.payload.read().unwrap();
-    //println!("in: {:?}", t1.shape());
+    //debug!("in: {:?}", t1.shape());
     //let t1 = Tensor::new(&[2, 2]).with_values(&[1.0f32,2.0f32,3.0f32,4.0f32]).unwrap();
 
     let f = |t:Tensor<f32>| -> Result<Tensor<f32>, tensorflow::Status> {
@@ -107,9 +109,19 @@ fn diag(res: ResourceArc<TensorResource>) -> NifResult<ResourceArc<TensorResourc
             .dtype(Float)
             .build(&mut scope.with_op_name("input1"))?;
 
-        let _ = tensorflow::ops::DiagPart::new().T(Float).build(
-            in1,
-            &mut scope.with_op_name("diag"))?;
+        println!("diag n {} {:?}",t.dims().len(),t.dims());
+        let _ = match t.dims().len() {
+            1=>
+            tensorflow::ops::Diag::new().T(Float).build(
+                in1,
+                &mut scope.with_op_name("diag"))?,
+
+            2=>
+            tensorflow::ops::DiagPart::new().T(Float).build(
+                in1,
+                &mut scope.with_op_name("diag"))?,
+            _ => todo!(),
+        };
 
         let mut step = tensorflow::SessionRunArgs::new();
 
@@ -127,6 +139,7 @@ fn diag(res: ResourceArc<TensorResource>) -> NifResult<ResourceArc<TensorResourc
         session.run(&mut step)?;
 
         let ans: Tensor<f32> = step.fetch(result)?;
+        println!("diag {:?}",ans);
         Ok(ans)
     };
 
@@ -277,9 +290,9 @@ fn svd(res: ResourceArc<TensorResource>) -> NifResult<(ResourceArc<TensorResourc
         let u  = step.fetch(u)?;
         let v  = step.fetch(v)?;
 
-        println!("s = {:?}",s);
-        println!("u = {:?}",u);
-        println!("v = {:?}",v);
+        debug!("s = {:?}",s);
+        debug!("u = {:?}",u);
+        debug!("v = {:?}",v);
 
         Ok((s,u,v))
     };
@@ -312,9 +325,9 @@ fn version() -> Vec<u8> {
 
 // Private Functions
 fn tenor_to_vector(d: Tensor<f32>) -> Vec<f32> {
-    //println!("tenor_to_vector {:?}",d);
-    println!("shape {:?}",d.shape());
-    println!("tensor {:?}",d);
+    //debug!("tenor_to_vector {:?}",d);
+    debug!("shape {:?}",d.shape());
+    debug!("tensor {:?}",d);
     //vec![vec![d.get(&[0, 0]),d.get(&[0, 1])],vec![d.get(&[1, 0]),d.get(&[1, 1])]]
     let shape = d.shape();
     match shape[0] {
@@ -326,9 +339,9 @@ fn tenor_to_vector(d: Tensor<f32>) -> Vec<f32> {
 }
 
 fn tenor_to_matrix(d: Tensor<f32>) -> Vec<Vec<f32>> {
-    //println!("tenor_to_matrix {:?}",d);
-    println!("shape {:?}",d.shape());
-    println!("tensor {:?}",d);
+    //debug!("tenor_to_matrix {:?}",d);
+    debug!("shape {:?}",d.shape());
+    debug!("tensor {:?}",d);
     //vec![vec![d.get(&[0, 0]),d.get(&[0, 1])],vec![d.get(&[1, 0]),d.get(&[1, 1])]]
     let shape = d.shape();
     match (shape[0],shape[1]) {

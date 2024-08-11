@@ -4,32 +4,35 @@
 
 % linalg_tf:from_tensor(linalg_tf:to_tensor([[1.0,2.0],[3.0,4.0]])).
 
-%transpose_1_test() ->
-%	?assertEqual([[8.0]],from_tensor(transpose(to_tensor([[8]])))).
+transpose_1_test() ->
+	?assertEqual([[8.0]],from_tensor(transpose(to_tensor([[8]])))).
 
-%transpose_2_test() ->
-%	?assertEqual([[1.0,3.0],[2.0,4.0]],from_tensor(transpose(to_tensor([[1.0,2.0],[3.0,4.0]])))).
+transpose_2_test() ->
+	?assertEqual([[1.0,3.0],[2.0,4.0]],from_tensor(transpose(to_tensor([[1.0,2.0],[3.0,4.0]])))).
 
-%transpose_3_test() ->
-%	?assertEqual([[1.0,4.0],[2.0,5.0],[3.0,6.0]],from_tensor(transpose(to_tensor([[1.0,2.0,3.0],[4.0,5.0,6.0]])))).
+transpose_3_test() ->
+	?assertEqual([[1.0,4.0],[2.0,5.0],[3.0,6.0]],from_tensor(transpose(to_tensor([[1.0,2.0,3.0],[4.0,5.0,6.0]])))).
 
-%diag_2_test() ->
-%	?assertEqual([1.0,4.0],from_tensor(diag(to_tensor([[1.0,2.0],[3.0,4.0]])))).
+diag_part_test() ->
+	?assertEqual([1.0,4.0],from_tensor(diag(to_tensor([[1.0,2.0],[3.0,4.0]])))).
 
-%inv_1_test() ->
-%	?assertEqual([[0.125]],from_tensor(inv(to_tensor([[8.0]])))).
+%diag_make_test() ->
+%	?assertEqual([[1.0,0.0],[0.0,4.0]],from_tensor(diag(to_tensor([1.0,4.0])))).
 
-%inv_2_test()->
-%	?assertEqual([[1.0,2.0],[2.0,0.5]],from_tensor(inv(to_tensor([[1.0,0.5],[0.5,2.0]])))).
+inv_1_test() ->
+	?assertEqual([[0.125]],from_tensor(inv(to_tensor([[8.0]])))).
+
+inv_2_test()->
+	?assertEqual([[1.0,2.0],[2.0,0.5]],from_tensor(inv(to_tensor([[1.0,0.5],[0.5,2.0]])))).
 
 %inv_3_test()->
 %	?assertEqual([[-1.0,-1.0,2.0],[-1.0,0.0,1.0],[2.0,1.0,-2.0]],from_tensor(inv(to_tensor([[1.0,0.0,1.0],[0.0,2.0,1.0],[1.0,1.0,1.0]])))).
 
-%matmul_1_test()->
-%  ?assertEqual([[6.0]], from_tensor(matmul(to_tensor([[2.0]]), to_tensor([[3.0]])))).
+matmul_1_test()->
+  ?assertEqual([[6.0]], from_tensor(matmul(to_tensor([[2.0]]), to_tensor([[3.0]])))).
 
-%matmul_2_test()->
-%  ?assertEqual([[5.0,11.0],[11.0,25.0]], from_tensor(matmul(to_tensor([[1.0,2.0],[3.0,4.0]]), to_tensor([[1.0,3.0],[2.0,4.0]])))).
+matmul_2_test()->
+  ?assertEqual([[5.0,11.0],[11.0,25.0]], from_tensor(matmul(to_tensor([[1.0,2.0],[3.0,4.0]]), to_tensor([[1.0,3.0],[2.0,4.0]])))).
 
 %svd_2x2_test() ->
 %  A=to_tensor([[3,2],[2,3]]),
